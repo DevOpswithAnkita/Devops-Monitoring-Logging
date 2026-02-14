@@ -82,10 +82,12 @@ elif [ "$choice" == "2" ]; then
     # YAML deployment
     print_status "Deploying with YAML manifests..."
     
+    kubectl apply -f prometheus-alert-rules.yaml
     kubectl apply -f prometheus-deployment.yaml
     kubectl apply -f grafana-deployment.yaml
     kubectl apply -f node-exporter-daemonset.yaml
     kubectl apply -f kube-state-metrics.yaml
+    kubectl apply -f alertmanager-deployment.yaml
     
     print_status "Deployment complete!"
     
@@ -123,8 +125,20 @@ echo "  Or: kubectl port-forward -n monitoring svc/prometheus 9090:9090"
 echo "  Then visit: http://localhost:9090"
 echo ""
 
+echo "To access Alertmanager:"
+echo "  kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-alertmanager 9093:9093"
+echo "  Or: kubectl port-forward -n monitoring svc/alertmanager 9093:9093"
+echo "  Then visit: http://localhost:9093"
+echo ""
+
 echo "To expose via LoadBalancer (if supported):"
 echo "  kubectl patch svc prometheus-grafana -n monitoring -p '{\"spec\": {\"type\": \"LoadBalancer\"}}'"
+echo ""
+
+print_info "Configure Alertmanager notifications:"
+echo "  1. Edit alertmanager-deployment.yaml with your SMTP/Slack/PagerDuty settings"
+echo "  2. kubectl apply -f alertmanager-deployment.yaml"
+echo "  3. See alertmanager-guide.md for detailed configuration"
 echo ""
 
 print_info "For more options, see the setup guide: prometheus-grafana-setup.md"

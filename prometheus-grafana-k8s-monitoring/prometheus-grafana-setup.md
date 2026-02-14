@@ -6,6 +6,7 @@ This guide will help you deploy Prometheus and Grafana to monitor your Kubernete
 
 - **Prometheus**: Metrics collection and storage
 - **Grafana**: Visualization and dashboards
+- **Alertmanager**: Alert routing and notification management
 - **Node Exporter**: Node-level metrics (CPU, memory, disk)
 - **kube-state-metrics**: Kubernetes object metrics
 - **Loki** (optional): Log aggregation
@@ -50,8 +51,11 @@ helm install prometheus prometheus-community/kube-prometheus-stack \
   --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
   --set grafana.adminPassword='admin123' \
   --set prometheus.prometheusSpec.retention=15d \
-  --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi
+  --set prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi \
+  --set alertmanager.enabled=true
 ```
+
+Note: The kube-prometheus-stack includes Alertmanager by default with pre-configured alert rules.
 
 #### Step 4: Verify Installation
 
@@ -78,6 +82,18 @@ kubectl port-forward -n monitoring svc/prometheus-grafana 3000:80
 kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
 
 # Access at: http://localhost:9090
+```
+
+#### Step 7: Access Alertmanager
+
+```bash
+# Port forward to access Alertmanager
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-alertmanager 9093:9093
+
+# Or for manual deployment:
+kubectl port-forward -n monitoring svc/alertmanager 9093:9093
+
+# Access at: http://localhost:9093
 ```
 
 ### Method 2: Manual Deployment with YAML
@@ -186,6 +202,44 @@ spec:
     interval: 30s
     path: /metrics
 ```
+
+## Configuring Alertmanager
+
+For manual deployment, configure alert notifications:
+
+```bash
+# Deploy Alertmanager
+kubectl apply -f alertmanager-deployment.yaml
+
+# Deploy alert rules
+kubectl apply -f prometheus-alert-rules.yaml
+
+# Update Prometheus configuration
+kubectl apply -f prometheus-deployment.yaml
+```
+
+See `alertmanager-guide.md` for detailed configuration of:
+- Email notifications (Gmail, SMTP)
+- Slack integration
+- PagerDuty integration
+- Microsoft Teams
+- Discord
+- Alert routing and grouping
+- Silence management
+
+### Quick Alertmanager Setup for Slack
+
+1. Get Slack webhook from https://api.slack.com/messaging/webhooks
+2. Edit `alertmanager-deployment.yaml`:
+   ```yaml
+   slack_configs:
+   - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+     channel: '#alerts'
+   ```
+3. Apply configuration:
+   ```bash
+   kubectl apply -f alertmanager-deployment.yaml
+   ```
 
 ## Pre-configured Dashboards in Grafana
 

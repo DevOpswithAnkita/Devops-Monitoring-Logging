@@ -60,7 +60,11 @@ data:
     alerting:
       alertmanagers:
       - static_configs:
-        - targets: []
+        - targets: ['alertmanager:9093']
+
+    # Load alert rules
+    rule_files:
+    - '/etc/prometheus/rules/*.yml'
 
     # Scrape configurations
     scrape_configs:
@@ -210,6 +214,8 @@ spec:
         volumeMounts:
         - name: config
           mountPath: /etc/prometheus
+        - name: rules
+          mountPath: /etc/prometheus/rules
         - name: storage
           mountPath: /prometheus
         resources:
@@ -223,6 +229,9 @@ spec:
       - name: config
         configMap:
           name: prometheus-config
+      - name: rules
+        configMap:
+          name: prometheus-rules
       - name: storage
         persistentVolumeClaim:
           claimName: prometheus-pvc
