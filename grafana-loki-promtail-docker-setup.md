@@ -123,6 +123,60 @@ docker run -d \
 wget https://raw.githubusercontent.com/grafana/loki/v2.8.0/clients/cmd/promtail/promtail-docker-config.yaml -O promtail-config.yaml
 ```
 
+# Update Promtail to Collect Docker Logs
+
+```bash
+promtail-config.yaml 
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # System logs
+  - job_name: system
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: system
+          __path__: /var/log/*.log
+
+  # Nginx logs
+  - job_name: nginx
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          app: webserver
+          __path__: /var/log/nginx/*.log
+
+  # Apache logs
+  - job_name: apache
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: apache
+          app: webserver
+          __path__: /var/log/apache2/*.log
+
+
+  # Docker logs
+  - job_name: docker
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: docker
+          __path__: /var/lib/docker/containers/*/*-json.log
+```
 #### Run Promtail Container
 
 ```bash
