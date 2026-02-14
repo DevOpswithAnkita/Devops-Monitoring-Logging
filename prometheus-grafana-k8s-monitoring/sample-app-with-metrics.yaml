@@ -1,0 +1,133 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sample-app
+  namespace: default
+  labels:
+    app: sample-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: sample-app
+  template:
+    metadata:
+      labels:
+        app: sample-app
+      annotations:
+        # These annotations tell Prometheus to scrape this pod
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+      - name: app
+        image: your-app-image:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        - containerPort: 8080
+          name: metrics
+        env:
+        - name: METRICS_PORT
+          value: "8080"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sample-app
+  namespace: default
+  labels:
+    app: sample-app
+  annotations:
+    # These annotations tell Prometheus to scrape this service
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: sample-app
+---
+# Example Python Flask app with Prometheus metrics
+# Save this as app.py and build a Docker image
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-app-code
+  namespace: default
+data:
+  app.py: |
+    from flask import Flask, jsonify
+    from prometheus_client import Counter, Histogram, Gauge, generate_latest
+    import time
+    import random
+
+    app = Flask(__name__)
+
+    # Define metrics
+    REQUEST_COUNT = Counter(
+        'http_requests_total',
+        'Total HTTP requests',
+        ['method', 'endpoint', 'status']
+    )
+    
+    REQUEST_DURATION = Histogram(
+        'http_request_duration_seconds',
+        'HTTP request duration in seconds',
+        ['method', 'endpoint']
+    )
+    
+    ACTIVE_REQUESTS = Gauge(
+        'http_requests_active',
+        'Number of active HTTP requests'
+    )
+
+    @app.route('/')
+    def home():
+        ACTIVE_REQUESTS.inc()
+        start_time = time.time()
+        
+        # Simulate some work
+        time.sleep(random.uniform(0.01, 0.1))
+        
+        REQUEST_COUNT.labels(method='GET', endpoint='/', status='200').inc()
+        REQUEST_DURATION.labels(method='GET', endpoint='/').observe(time.time() - start_time)
+        ACTIVE_REQUESTS.dec()
+        
+        return jsonify({"message": "Hello from Kubernetes!"})
+
+    @app.route('/health')
+    def health():
+        return jsonify({"status": "healthy"}), 200
+
+    @app.route('/metrics')
+    def metrics():
+        return generate_latest()
+
+    if __name__ == '__main__':
+        app.run(host='0.0.0.0', port=8080)
+
+  requirements.txt: |
+    flask==3.0.0
+    prometheus-client==0.19.0
+
+  Dockerfile: |
+    FROM python:3.11-slim
+    WORKDIR /app
+    COPY requirements.txt .
+    RUN pip install --no-cache-dir -r requirements.txt
+    COPY app.py .
+    EXPOSE 8080
+    CMD ["python", "app.py"]
